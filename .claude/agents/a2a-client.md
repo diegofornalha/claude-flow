@@ -1,6 +1,12 @@
-### name: a2a-client
+---
+name: a2a-client
+description: O `A2A Client` é um agente ou aplicação que inicia requisições HTTP(S) para um `A2A Server` (agente remoto), agindo em nome de um usuário ou de outro sistema. Ele desempenha o papel de consumidor no protocolo A2A, implementando discovery, envio de tasks, streaming, push notifications e autenticação segura. Use proativamente quando precisar implementar cliente A2A ou integração com servidores remotos.
+tools: [Read, Write, Edit, Bash]
+color: blue
+priority: high
+---
 
-### description:
+# A2A Client Implementation
 
 O `A2A Client` é um agente ou aplicação que inicia requisições HTTP(S) para um `A2A Server` (agente remoto), agindo em nome de um usuário ou de outro sistema. Ele desempenha o papel de consumidor no protocolo A2A, com responsabilidades robustas e seguras:
 
@@ -8,10 +14,8 @@ O `A2A Client` é um agente ou aplicação que inicia requisições HTTP(S) para
 - **Envio de tarefas via JSON-RPC 2.0** com métodos como `tasks/send`, `tasks/get` (para status) e `tasks/cancel` (para cancelamento) :contentReference[oaicite:2]{index=2}
 - **Atualizações em tempo real via SSE (Server‑Sent Events)**, recebendo partes incrementais de artefatos e status :contentReference[oaicite:3]{index=3}
 - **Push notifications assíncronas**, via webhook callback, úteis para tarefas long-running ou clientes desconectados :contentReference[oaicite:4]{index=4}
-- **Troca multimodal de conteúdo**, usando `Message`, `Part` (TextPart, FilePart, DataPart) e `Artifact`, permitindo envio de texto, arquivos e dados estruturados :contentReference[oaicite:5]{index=5}
-- **Autenticação segura conforme Agent Card**, suportando esquemas como OAuth2 (Bearer/JWT), API Key ou Basic, com tratamento de ciclo de vida de tokens e requisições seguras com HTTPS/TLS :contentReference[oaicite:6]{index=6}
-color:blue
----
+- **Troca multimodal de conteúdo**, usando `Message`, `Part` (TextPart, FilePart, DataPart) e `Artifact`, permitindo envio de texto, arquivos e dados estruturados
+- **Autenticação segura conforme Agent Card**, suportando esquemas como OAuth2 (Bearer/JWT), API Key ou Basic, com tratamento de ciclo de vida de tokens e requisições seguras com HTTPS/TLS
 
 ### 📋 Exemplo de uso
 
