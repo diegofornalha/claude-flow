@@ -479,20 +479,54 @@ async function executeClaudeWithSparc(
 
   try {
     const { spawn } = await import('child_process');
-    const child = spawn('claude', claudeArgs, {
-      env: {
-        ...process.env,
-        CLAUDE_INSTANCE_ID: instanceId,
-        CLAUDE_SPARC_MODE: 'true',
-        CLAUDE_FLOW_MEMORY_ENABLED: 'true',
-        CLAUDE_FLOW_MEMORY_NAMESPACE: flags.namespace || 'sparc',
-      },
+    
+    // Check if Deno is available and use the wrapper approach if needed
+    const isDeno = typeof Deno !== 'undefined';
+    const isDenoAvailable = await checkDenoAvailability();
+    
+    let command = 'claude';
+    let args = claudeArgs;
+    let env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_INSTANCE_ID: instanceId,
+      CLAUDE_SPARC_MODE: 'true',
+      CLAUDE_FLOW_MEMORY_ENABLED: 'true',
+      CLAUDE_FLOW_MEMORY_NAMESPACE: flags.namespace || 'sparc',
+    } as Record<string, string>;
+
+    // If SPARC modes need Deno but we're in Node.js context, use wrapper
+    if (!isDeno && isDenoAvailable) {
+      const wrapperPath = './deno/sparc-deno-wrapper.sh';
+      const { existsSync } = await import('fs');
+      
+      if (existsSync(wrapperPath)) {
+        info('Using Deno wrapper for SPARC execution');
+        command = 'bash';
+        args = [wrapperPath, ...claudeArgs];
+        env['DENO_SPARC_MODE'] = 'true';
+      }
+    }
+
+    const child = spawn(command, args, {
+      env,
       stdio: 'inherit',
     });
 
     const status = await new Promise<{ success: boolean; code: number | null }>((resolve) => {
       child.on('close', (code) => {
         resolve({ success: code === 0, code });
+      });
+      
+      child.on('error', (err) => {
+        // If claude command fails and we haven't tried the wrapper, try it
+        if (command === 'claude' && isDenoAvailable) {
+          warning('Claude command failed, attempting with Deno wrapper...');
+          executeClaudeWithSparcWrapper(enhancedTask, tools, instanceId, flags)
+            .then(() => resolve({ success: true, code: 0 }))
+            .catch(() => resolve({ success: false, code: 1 }));
+        } else {
+          resolve({ success: false, code: 1 });
+        }
       });
     });
 
@@ -503,7 +537,89 @@ async function executeClaudeWithSparc(
     }
   } catch (err) {
     error(`Failed to execute Claude: ${(err as Error).message}`);
+    
+    // Fallback to wrapper if available
+    const isDenoAvailable = await checkDenoAvailability();
+    if (isDenoAvailable) {
+      warning('Attempting fallback to Deno wrapper...');
+      try {
+        await executeClaudeWithSparcWrapper(enhancedTask, tools, instanceId, flags);
+      } catch (wrapperErr) {
+        error(`Wrapper fallback also failed: ${(wrapperErr as Error).message}`);
+      }
+    }
   }
+}
+
+async function checkDenoAvailability(): Promise<boolean> {
+  try {
+    const { spawn } = await import('child_process');
+    return new Promise((resolve) => {
+      const child = spawn('deno', ['--version'], { stdio: 'pipe' });
+      child.on('close', (code) => resolve(code === 0));
+      child.on('error', () => resolve(false));
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function executeClaudeWithSparcWrapper(
+  enhancedTask: string,
+  tools: string,
+  instanceId: string,
+  flags: any,
+): Promise<void> {
+  const { spawn } = await import('child_process');
+  const { existsSync } = await import('fs');
+  
+  const wrapperPath = './deno/sparc-deno-wrapper.sh';
+  
+  if (!existsSync(wrapperPath)) {
+    throw new Error('Deno wrapper not found. Please ensure deno/sparc-deno-wrapper.sh exists.');
+  }
+
+  const claudeArgs = [enhancedTask];
+  claudeArgs.push('--allowedTools', tools);
+
+  if (flags.noPermissions || flags['no-permissions']) {
+    claudeArgs.push('--dangerously-skip-permissions');
+  }
+
+  if (flags.config) {
+    claudeArgs.push('--mcp-config', flags.config);
+  }
+
+  if (flags.verbose) {
+    claudeArgs.push('--verbose');
+  }
+
+  const child = spawn('bash', [wrapperPath, ...claudeArgs], {
+    env: {
+      ...process.env,
+      CLAUDE_INSTANCE_ID: instanceId,
+      CLAUDE_SPARC_MODE: 'true',
+      CLAUDE_FLOW_MEMORY_ENABLED: 'true',
+      CLAUDE_FLOW_MEMORY_NAMESPACE: flags.namespace || 'sparc',
+      DENO_SPARC_MODE: 'true',
+    },
+    stdio: 'inherit',
+  });
+
+  return new Promise((resolve, reject) => {
+    child.on('close', (code) => {
+      if (code === 0) {
+        success(`SPARC instance ${instanceId} completed successfully via Deno wrapper`);
+        resolve();
+      } else {
+        reject(new Error(`SPARC instance ${instanceId} exited with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 async function showSparcHelp(): Promise<void> {

@@ -1,7 +1,7 @@
 ---
 name: subagent-expert
 description: Expert in creating, optimizing, and managing Claude Code sub agents. Use proactively when creating new sub agents or improving existing ones. Must be used for sub agent architecture, design patterns, and best practices.
-tools: Read, Write, Edit, Glob, Grep, TodoWrite
+tools: Read, Write, Edit, Glob, TodoWrite
 ---
 
 # Sub Agent Architecture Expert
